@@ -23,3 +23,4 @@ The calendar is intentionally limited to **official release schedules** for majo
 
 ## Deploy
 Upload this project to the same Vercel project and redeploy. Keep your existing `COMMODITY_API_KEY`. Do not add any Trading Economics API key.
+V3 dashboard update
