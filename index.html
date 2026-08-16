@@ -47,15 +47,130 @@ function scoreMacro(m,metal){let s=50;if(m?.realTenYear?.value!=null)s += m.real
 function sig(s){return s>=70?'Strong Bullish':s>=55?'Bullish':s>=45?'Neutral':s>=30?'Weak':'Bearish'}
 function normalizeHistory(payload){const out={gold:[],silver:[]};const r=payload?.data?.rates||{};for(const key of ['XAU','XAG']){const arr=r[key];if(Array.isArray(arr)){for(const x of arr){const date=x.date||x.day||x.timestamp;if(!date)continue;const close=Number(x.close??x.rate??x.value);if(!Number.isFinite(close))continue;out[key==='XAU'?'gold':'silver'].push({time:date,open:Number(x.open??close),high:Number(x.high??close),low:Number(x.low??close),close});}}else if(arr&&typeof arr==='object'){const vals=Object.values(arr);for(const x of vals){const date=x.date;if(date){const close=Number(x.close??x.rate??x.value);if(Number.isFinite(close))out[key==='XAU'?'gold':'silver'].push({time:date,open:Number(x.open??close),high:Number(x.high??close),low:Number(x.low??close),close});}}}}
 for(const k of ['gold','silver'])out[k].sort((a,b)=>a.time.localeCompare(b.time));return out}
-function makeChart(){const el=$('chart');el.innerHTML='';chart=LightweightCharts.createChart(el,{layout:{background:{color:'transparent'},textColor:'#91a0b7'},grid:{vertLines:{color:'#17243a'},horzLines:{color:'#17243a'}},rightPriceScale:{borderColor:'#26344d'},timeScale:{borderColor:'#26344d',timeVisible:false}});const arr=history[selected].slice(-rangeDays);candleSeries=chart.addCandlestickSeries({upColor:'#32c48d',downColor:'#ef6262',borderVisible:false,wickUpColor:'#32c48d',wickDownColor:'#ef6262'});candleSeries.setData(arr);chart.timeScale().fitContent()}
-function updateTech(){const rows=history[selected],a=rows.map(x=>x.close),e20=ema(a,20),e50=ema(a,50),e200=ema(a,200),r=rsi(a),m=macd(a),at=atr(rows);$('rsi').textContent=r==null?'—':r.toFixed(1);$('ema20').textContent=fmt(e20);$('ema50').textContent=fmt(e50);$('ema200').textContent=fmt(e200);$('macd').textContent=m?.m==null?'—':m.m.toFixed(2);$('macdSignal').textContent=m?.s==null?'—':m.s.toFixed(2);$('atr').textContent=fmt(at);$('trend').textContent=trend(a);}
-async function loadHistory(){try{const r=await fetch('/api/history',{cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'History error');history=normalizeHistory(d);loaded=true;makeChart();updateTech();}catch(e){console.error(e);$('rsi').textContent='History unavailable'}}
-async function loadMacro(){try{const r=await fetch('/api/macro',{cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Macro error');const m=d.data;for(const [id,x,suf] of [['cpi',m.cpi,'%'],['coreCpi',m.coreCpi,'%'],['pce',m.pce,'%'],['corePce',m.corePce,'%'],['tenYear',m.tenYear,'%'],['realTenYear',m.realTenYear,'%'],['dxy',m.dxy,''],['fed',m.fedEffective,'%'],['unemployment',m.unemployment,'%'],['nfp',m.nfp,'']])$(id).textContent=x?.value==null?'—':fmt(x.value)+suf;const gs=scoreMacro(m,'gold'),ss=scoreMacro(m,'silver');$('gScore').textContent=gs+'/100';$('sScore').textContent=ss+'/100';$('gBar').style.width=gs+'%';$('sBar').style.width=ss+'%';$('gRegime').textContent=sig(gs);$('sRegime').textContent=sig(ss);window.macro=m;updateMetalSignals()}catch(e){console.error(e)}}
-function updateMetalSignals(){if(!loaded)return;for(const [k,el] of [['gold','goldSignal'],['silver','silverSignal']]){const a=history[k].map(x=>x.close);const tech=a.length>=50?(a.at(-1)>ema(a,20)?55:45)+(ema(a,20)>ema(a,50)?20:-20):50;const macro=window.macro?scoreMacro(window.macro,k):50;const combined=Math.round((tech+macro)/2);$(el).textContent=sig(combined)}}
-async function loadPrices(){try{const r=await fetch('/api/prices',{cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Price error');const closed=!!d.market?.closed;$('gold').textContent=fmt(d.gold.price);$('silver').textContent=fmt(d.silver.price);setChange($('goldChange'),d.gold.change24h,closed);setChange($('silverChange'),d.silver.change24h,closed);$('goldSession').textContent=closed?'Saturday/Sunday: no new daily change. Last available session: '+(d.gold.previousDate||'—'):('Previous session: '+(d.gold.previousDate||'—'));$('silverSession').textContent=closed?'Saturday/Sunday: no new daily change. Last available session: '+(d.silver.previousDate||'—'):('Previous session: '+(d.silver.previousDate||'—'));$('ratio').textContent=(d.gold.price/d.silver.price).toFixed(2);$('gPrev').textContent=fmt(d.gold.previousClose);$('sPrev').textContent=fmt(d.silver.previousClose);$('marketStatus').textContent=closed?'MARKET CLOSED':'OPEN / FEED LIVE';$('marketStatus').className=closed?'closed':'';$('updated').textContent='Updated '+new Date(d.timestamp).toLocaleTimeString();$('status').textContent=closed?'WEEKEND / CLOSED':'LIVE';$('dot').style.background=closed?'var(--yellow)':'var(--green)';updateMetalSignals()}catch(e){$('status').textContent='STALE / ERROR';$('dot').style.background='var(--red)';console.error(e)}}
-document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');selected=b.dataset.metal;makeChart();updateTech();updateMetalSignals()});document.querySelectorAll('.ranges button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.ranges button').forEach(x=>x.classList.remove('active'));b.classList.add('active');rangeDays=Number(b.dataset.range);makeChart()});
-loadHistory();loadMacro();loadPrices();setInterval(loadPrices,60000);setInterval(loadMacro,15*60*1000);window.addEventListener('resize',()=>chart&&chart.applyOptions({width:$('chart').clientWidth}));
+function makeChart(){
+  const el = $('chart');
+  el.innerHTML = '';
 
+  chart = LightweightCharts.createChart(el,{
+    layout:{
+      background:{color:'transparent'},
+      textColor:'#91a0b7'
+    },
+    grid:{
+      vertLines:{color:'#17243a'},
+      horzLines:{color:'#17243a'}
+    },
+    width:el.clientWidth,
+    height:360,
+    timeScale:{
+      borderColor:'#26344d',
+      timeVisible:false
+    }
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor:'#32c48d',
+    downColor:'#ef6262',
+    borderVisible:false,
+    wickUpColor:'#32c48d',
+    wickDownColor:'#ef6262'
+  });
+
+  candleSeries.setData(history[selected]);
+  chart.timeScale().fitContent();
+}
+
+async function loadHistory(){
+  try{
+    const r = await fetch('/api/history',{cache:'no-store'});
+    const d = await r.json();
+
+    if(!r.ok || !d.success){
+      throw new Error(d.error || 'History error');
+    }
+
+    history = normalizeHistory(d);
+    loaded = true;
+
+    makeChart();
+    updateTech();
+    updateMetalsSignals();
+  }catch(e){
+    console.error('History error:',e);
+  }
+}
+
+async function loadMacro(){
+  try{
+    const r = await fetch('/api/macro',{cache:'no-store'});
+    const d = await r.json();
+
+    if(!r.ok || !d.success){
+      throw new Error(d.error || 'Macro error');
+    }
+
+    window.macroData = d.data;
+  }catch(e){
+    console.error('Macro error:',e);
+  }
+}
+
+async function loadPrices(){
+  try{
+    const r = await fetch('/api/prices',{cache:'no-store'});
+    const d = await r.json();
+
+    if(!r.ok || !d.success){
+      throw new Error(d.error || 'Price error');
+    }
+
+    const closed = !!d.market?.closed;
+
+    $('gold').textContent = fmt(d.gold?.price);
+    $('silver').textContent = fmt(d.silver?.price);
+
+    $('goldSignal').textContent = closed ? 'Market closed' : 'Live';
+    $('silverSignal').textContent = closed ? 'Market closed' : 'Live';
+
+    $('dot').className = closed ? 'dot closed' : 'dot';
+    document.querySelector('.status').textContent =
+      closed ? 'Market closed' : 'Market open';
+  }catch(e){
+    console.error('Price error:',e);
+  }
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tabs button')
+      .forEach(x=>x.classList.remove('active'));
+
+    b.classList.add('active');
+    selected=b.dataset.metal;
+
+    if(loaded){
+      candleSeries.setData(history[selected]);
+      chart.timeScale().fitContent();
+      updateTech();
+      updateMetalsSignals();
+    }
+  };
+});
+
+loadHistory();
+loadMacro();
+loadPrices();
+
+setInterval(loadPrices,60000);
+setInterval(loadMacro,15*60*1000);
+
+window.addEventListener('resize',()=>{
+  if(chart){
+    chart.applyOptions({
+      width:$('chart').clientWidth
+    });
+  }
+});
 function calendarRead(e){const n=(e.event+' '+e.category).toLowerCase();if(n.includes('cpi')||n.includes('pce')||n.includes('ppi'))return 'Inflation hotter than forecast → yields/Fed expectations up; usually negative for gold. Cooler → opposite.';if(n.includes('non farm')||n.includes('employment')||n.includes('unemployment'))return 'Stronger jobs → tighter Fed expectations; weaker jobs → easing expectations. Watch surprise vs forecast.';if(n.includes('fomc'))return 'Rate + guidance matter. Dovish surprise usually supports gold; hawkish surprise usually pressures it.';return 'Watch the surprise versus consensus and the move in real yields/DXY.'}
 function etTime(s){return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date(s))}
 async function loadCalendar(){try{const r=await fetch('/api/calendar',{cache:'no-store'});const d=await r.json();const body=$('calendarBody');body.innerHTML='';const ev=d.events.filter(x=>new Date(x.date)>=new Date(Date.now()-3600000)).slice(0,18);for(const e of ev){const tr=document.createElement('tr');if((e.daysUntil??99)<=3)tr.className='soon';const forecast=e.forecast||'—';const prev=e.previous||'—';const impact=e.importance>=3?'HIGH':'MEDIUM';tr.innerHTML=`<td><b>${etTime(e.date)}</b><br><span class="sub">${e.daysUntil<=0?'Today':e.daysUntil===1?'Tomorrow':e.daysUntil+' days'}</span></td><td><span class="event-name">${e.event}</span><br><span class="sub">${e.category||''}</span></td><td>${e.reference||'—'}</td><td>${prev}</td><td><b>${forecast}</b>${e.forecastDetail?`<br><span class="sub">${e.forecastDetail}</span>`:''}</td><td class="impact ${impact==='HIGH'?'high':'medium'}">${impact}</td><td>${calendarRead(e)}</td>`;body.appendChild(tr)}$('calendarSource').textContent=d.liveConsensus?'Live consensus connected':'Official schedule + forecast snapshot';}catch(e){$('calendarBody').innerHTML='<tr><td colspan="6">Calendar unavailable</td></tr>'}}
