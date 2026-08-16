@@ -1,0 +1,30 @@
+name: Inject dashboard enhancements
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject enhancement script
+        run: |
+          if ! grep -q 'dashboard-enhancements.js' index.html; then
+            python - <<'PY'
+            from pathlib import Path
+            p=Path('index.html')
+            s=p.read_text()
+            tag='<script src="/dashboard-enhancements.js"></script>'
+            s=s.replace('</body>',tag+'</body>')
+            p.write_text(s)
+            PY
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add index.html
+            git commit -m 'Load INR and dollar outlook enhancements'
+            git push
+          else
+            echo 'Enhancement script already loaded'
+          fi
