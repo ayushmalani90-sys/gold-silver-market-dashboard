@@ -50,9 +50,8 @@ export default async function handler(req, res) {
       's-maxage=21600, stale-while-revalidate=86400'
     );
 
-    return res.status(200).json({
-      success: true,
-      data
+   return res.status(200).json(data);
+    
     });
 
   } catch (e) {
