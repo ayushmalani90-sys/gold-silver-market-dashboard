@@ -45,8 +45,37 @@ function atr(rows,n=14){if(rows.length<=n)return null;const tr=[];for(let i=1;i<
 function trend(a){const e20=ema(a,20),e50=ema(a,50),e200=ema(a,200);if(!e50)return 'Building history';if(e20>e50 && (!e200||a.at(-1)>e200))return 'Bullish';if(e20<e50 && (!e200||a.at(-1)<e200))return 'Bearish';return 'Mixed'}
 function scoreMacro(m,metal){let s=50;if(m?.realTenYear?.value!=null)s += m.realTenYear.value<2?12:-12;if(m?.dxy?.value!=null)s += m.dxy.value<100?8:-8;if(m?.fedEffective?.value!=null)s += m.fedEffective.value<4?6:-6;if(m?.corePce?.value!=null)s += m.corePce.value<3?8:-8;if(m?.unemployment?.value!=null)s += m.unemployment.value>4.5?4:-4;if(metal==='silver')s += (m?.nfp?.change!=null && m.nfp.change>0)?4:-4;return Math.max(0,Math.min(100,Math.round(s)))}
 function sig(s){return s>=70?'Strong Bullish':s>=55?'Bullish':s>=45?'Neutral':s>=30?'Weak':'Bearish'}
-function normalizeHistory(payload){const out={gold:[],silver:[]};const r=payload?.data?.rates||{};for(const key of ['XAU','XAG']){const arr=r[key];if(Array.isArray(arr)){for(const x of arr){const date=x.date||x.day||x.timestamp;if(!date)continue;const close=Number(x.close??x.rate??x.value);if(!Number.isFinite(close))continue;out[key==='XAU'?'gold':'silver'].push({time:date,open:Number(x.open??close),high:Number(x.high??close),low:Number(x.low??close),close});}}else if(arr&&typeof arr==='object'){const vals=Object.values(arr);for(const x of vals){const date=x.date;if(date){const close=Number(x.close??x.rate??x.value);if(Number.isFinite(close))out[key==='XAU'?'gold':'silver'].push({time:date,open:Number(x.open??close),high:Number(x.high??close),low:Number(x.low??close),close});}}}}
-for(const k of ['gold','silver'])out[k].sort((a,b)=>a.time.localeCompare(b.time));return out}
+function normalizeHistory(payload){
+  const out = {gold:[], silver:[]};
+  const rates = payload?.rates || payload?.data?.rates || {};
+
+  for(const [date, day] of Object.entries(rates)){
+    if(day?.XAU){
+      out.gold.push({
+        time: date,
+        open: Number(day.XAU.open),
+        high: Number(day.XAU.high),
+        low: Number(day.XAU.low),
+        close: Number(day.XAU.close)
+      });
+    }
+
+    if(day?.XAG){
+      out.silver.push({
+        time: date,
+        open: Number(day.XAG.open),
+        high: Number(day.XAG.high),
+        low: Number(day.XAG.low),
+        close: Number(day.XAG.close)
+      });
+    }
+  }
+
+  out.gold.sort((a,b)=>a.time.localeCompare(b.time));
+  out.silver.sort((a,b)=>a.time.localeCompare(b.time));
+
+  return out;
+}
 function makeChart(){
   const el = $('chart');
   el.innerHTML = '';
