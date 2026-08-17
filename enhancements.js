@@ -1,22 +1,40 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id);
-let H={gold:[],silver:[]}, P={gold:null,silver:null,goldChange:'—',silverChange:'—'}, M=null;
-const fmt=v=>Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumFractionDigits:2}):'—';
-const normalize=d=>{const o={gold:[],silver:[]},r=d&&d.rates?d.rates:(d&&d.data&&d.data.rates)||{};Object.keys(r).forEach(date=>{const x=r[date]||{};[['XAU','gold'],['XAG','silver']].forEach(pair=>{const z=x[pair[0]];if(z)o[pair[1]].push({time:date,open:Number(z.open),high:Number(z.high),low:Number(z.low),close:Number(z.close)})})});o.gold.sort((a,b)=>a.time.localeCompare(b.time));o.silver.sort((a,b)=>a.time.localeCompare(b.time));return o};
-function ema(a,n){if(a.length<n)return null;let k=2/(n+1),e=0,i=0;for(i=0;i<n;i++)e+=a[i];e/=n;for(;i<a.length;i++)e=a[i]*k+e*(1-k);return e}
-function rsi(a,n){n=n||14;if(a.length<=n)return null;let g=0,l=0,i;for(i=1;i<=n;i++){const d=a[i]-a[i-1];g+=Math.max(d,0);l+=Math.max(-d,0)}let ag=g/n,al=l/n;for(;i<a.length;i++){const d=a[i]-a[i-1];ag=(ag*(n-1)+Math.max(d,0))/n;al=(al*(n-1)+Math.max(-d,0))/n}return al===0?100:100-100/(1+ag/al)}
-function levels(a){const r=a.slice(Math.max(0,a.length-60));if(!r.length)return null;return{support:Math.min.apply(null,r.map(x=>x.low)),resistance:Math.max.apply(null,r.map(x=>x.high))}}
-function pattern(a){if(a.length<2)return null;const c=a[a.length-1],p=a[a.length-2],body=Math.abs(c.close-c.open),range=c.high-c.low||1,upper=c.high-Math.max(c.open,c.close),lower=Math.min(c.open,c.close)-c.low;if(body/range<.12)return['Doji','Neutral','Indecision — wait for confirmation'];if(lower>2*body&&upper<.8*body&&c.close>c.open)return['Hammer','Bullish','Potential bullish reversal'];if(upper>2*body&&lower<.8*body&&c.close<c.open)return['Shooting Star','Bearish','Potential bearish reversal'];if(p.close<p.open&&c.close>c.open&&c.open<=p.close&&c.close>=p.open)return['Bullish Engulfing','Bullish','Bullish momentum'];if(p.close>p.open&&c.close<c.open&&c.open>=p.close&&c.close<=p.open)return['Bearish Engulfing','Bearish','Bearish momentum'];return null}
-function regime(a){const c=a.map(x=>x.close),e20=ema(c,20),e50=ema(c,50),e200=ema(c,200),r=rsi(c),last=c[c.length-1];if(!e20||!e50)return'Insufficient data';let n=0;n+=last>e20?1:-1;n+=last>e50?1:-1;if(e200)n+=last>e200?1:-1;if(r!=null)n+=r>55?1:r<45?-1:0;return n>=3?'Strong Bull Trend':n>=1?'Bull Trend':n<=-3?'Strong Bear Trend':n<=-1?'Bear Trend':'Range / Mixed'}
-function addStyles(){if($('dashExtraStyles'))return;const s=document.createElement('style');s.id='dashExtraStyles';s.textContent='.dash-extra{background:#111b2e;border:1px solid #26344d;border-radius:16px;padding:18px;grid-column:1/-1}.dash-extra-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.dash-extra-box{background:#0d1728;border:1px solid #26344d;border-radius:10px;padding:11px}.dash-extra-box span{display:block;color:#91a0b7;font-size:10px}.dash-extra-box b{display:block;margin-top:5px}.dash-note{color:#91a0b7;font-size:11px;line-height:1.5;margin-top:10px}.bull{color:#32c48d}.bear{color:#ef6262}.neutral{color:#e4b84b}@media(max-width:850px){.dash-extra-grid{grid-template-columns:repeat(2,1fr)}}';document.head.appendChild(s)}
-function insert(id,title,html,afterId){if($(id))return;const c=document.createElement('section');c.id=id;c.className='dash-extra';c.innerHTML='<div class="section">'+title+'</div>'+html;const anchor=$(afterId);const target=anchor&&anchor.closest?anchor.closest('section.card'):anchor;if(target&&target.parentNode)target.parentNode.insertBefore(c,target.nextSibling);else{const grid=document.querySelector('.grid');if(grid)grid.appendChild(c)}}
-function build(){addStyles();
- if(!$('dashUpdated')){const st=$('status');if(st){const e=document.createElement('div');e.id='dashUpdated';e.className='muted';e.style.marginTop='4px';e.textContent='Prices last updated: —';st.parentNode.appendChild(e)}}
- insert('dashPriceIntel','Price Intelligence','<div class="dash-extra-grid"><div class="dash-extra-box"><span>Gold current</span><b id="xGold">—</b></div><div class="dash-extra-box"><span>Gold 24h</span><b id="xGoldCh">—</b></div><div class="dash-extra-box"><span>Silver current</span><b id="xSilver">—</b></div><div class="dash-extra-box"><span>Silver 24h</span><b id="xSilverCh">—</b></div><div class="dash-extra-box"><span>Gold / Silver ratio</span><b id="xRatio">—</b></div><div class="dash-extra-box"><span>Gold 30D</span><b id="xGold30">—</b></div><div class="dash-extra-box"><span>Silver 30D</span><b id="xSilver30">—</b></div><div class="dash-extra-box"><span>Relative strength</span><b id="xLeader">—</b></div></div><div class="dash-note">30-day performance is calculated from the available daily historical candles.</div>','gold');
- insert('dashTech','Technical Decision Layer','<div class="dash-extra-grid"><div class="dash-extra-box"><span>Gold trend</span><b id="xGT">—</b></div><div class="dash-extra-box"><span>Silver trend</span><b id="xST">—</b></div><div class="dash-extra-box"><span>Gold RSI</span><b id="xGR">—</b></div><div class="dash-extra-box"><span>Silver RSI</span><b id="xSR">—</b></div><div class="dash-extra-box"><span>Gold support</span><b id="xGS">—</b></div><div class="dash-extra-box"><span>Gold resistance</span><b id="xGRs">—</b></div><div class="dash-extra-box"><span>Silver support</span><b id="xSS">—</b></div><div class="dash-extra-box"><span>Silver resistance</span><b id="xSRs">—</b></div></div><div class="dash-note" id="xTechNote">Waiting for data.</div>','chart');
- insert('dashPatterns','Pattern Recognition & Impact','<div class="dash-extra-grid"><div class="dash-extra-box"><span>Gold pattern</span><b id="xGP">—</b></div><div class="dash-extra-box"><span>Gold impact</span><b id="xGI">—</b></div><div class="dash-extra-box"><span>Silver pattern</span><b id="xSP">—</b></div><div class="dash-extra-box"><span>Silver impact</span><b id="xSI">—</b></div></div><div class="dash-note">Patterns are calculated from the latest daily candles. They indicate probability, not certainty.</div>','dashTech');
- insert('dashRegime','Market Regime','<div class="dash-extra-grid"><div class="dash-extra-box"><span>Gold</span><b id="xGReg">—</b></div><div class="dash-extra-box"><span>Silver</span><b id="xSReg">—</b></div><div class="dash-extra-box"><span>Dollar backdrop</span><b id="xDollar">—</b></div><div class="dash-extra-box"><span>Macro backdrop</span><b id="xMacro">—</b></div></div><div class="dash-note" id="xRegNote">Waiting for macro data.</div>','dashPatterns');
+let history={gold:[],silver:[]}, selected='gold', days=90, overlayChart=null, overlayWrap=null;
+function normalize(d){
+  const out={gold:[],silver:[]}, rates=d?.rates||d?.data?.rates||{};
+  for(const [date,x] of Object.entries(rates)){
+    for(const [sym,key] of [['XAU','gold'],['XAG','silver']]) if(x?.[sym]) out[key].push({time:date,open:+x[sym].open,high:+x[sym].high,low:+x[sym].low,close:+x[sym].close});
+  }
+  out.gold.sort((a,b)=>a.time.localeCompare(b.time));
+  out.silver.sort((a,b)=>a.time.localeCompare(b.time));
+  return out;
 }
-// Deployment trigger: keep this file on the Vercel-connected main branch.
+function visible(){const a=history[selected]||[];return a.slice(-days)}
+function levels(rows){if(!rows.length)return null;const r=rows.slice(-Math.min(60,rows.length));return{support:Math.min(...r.map(x=>x.low)),resistance:Math.max(...r.map(x=>x.high))}}
+function cleanup(){if(overlayChart){try{overlayChart.remove()}catch(e){}}overlayChart=null;if(overlayWrap){overlayWrap.remove();overlayWrap=null}}
+function drawOverlay(){
+  const host=$('chart'),rows=visible();if(!host||!rows.length||!window.LightweightCharts)return;
+  const lv=levels(rows);if(!lv)return;cleanup();
+  if(getComputedStyle(host).position==='static')host.style.position='relative';
+  overlayWrap=document.createElement('div');overlayWrap.id='srOverlay';Object.assign(overlayWrap.style,{position:'absolute',inset:'0',pointerEvents:'none',zIndex:'3'});host.appendChild(overlayWrap);
+  overlayChart=LightweightCharts.createChart(overlayWrap,{layout:{background:{color:'transparent'},textColor:'transparent'},grid:{vertLines:{visible:false},horzLines:{visible:false}},rightPriceScale:{visible:false,borderVisible:false},leftPriceScale:{visible:false,borderVisible:false},timeScale:{visible:false,borderVisible:false,timeVisible:false,secondsVisible:false},handleScroll:false,handleScale:false,crosshair:{mode:0}});
+  const hi=overlayChart.addLineSeries({lineVisible:false,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+  const lo=overlayChart.addLineSeries({lineVisible:false,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+  hi.setData(rows.map(x=>({time:x.time,value:x.high})));lo.setData(rows.map(x=>({time:x.time,value:x.low})));
+  const s=overlayChart.addLineSeries({color:'#32c48d',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+  const r=overlayChart.addLineSeries({color:'#ef6262',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+  s.setData(rows.map(x=>({time:x.time,value:lv.support})));r.setData(rows.map(x=>({time:x.time,value:lv.resistance})));
+  overlayChart.timeScale().fitContent();
+}
+async function load(){try{const r=await fetch('/api/history',{cache:'no-store'}),d=await r.json();if(!r.ok||!d.success)return;history=normalize(d);setTimeout(drawOverlay,250)}catch(e){}}
+function hook(){
+  document.querySelectorAll('[data-metal]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.metal;setTimeout(drawOverlay,300)}));
+  document.querySelectorAll('[data-days]').forEach(b=>b.addEventListener('click',()=>{days=+b.dataset.days;setTimeout(drawOverlay,300)}));
+  window.addEventListener('resize',()=>{if(overlayChart&&overlayWrap)overlayChart.applyOptions({width:overlayWrap.clientWidth,height:overlayWrap.clientHeight})});
+}
+function addLegend(){if($('srLegend'))return;const host=$('chart');if(!host)return;if(getComputedStyle(host).position==='static')host.style.position='relative';const el=document.createElement('div');el.id='srLegend';el.innerHTML='<span style="color:#32c48d">● Support</span>&nbsp;&nbsp;<span style="color:#ef6262">● Resistance</span>';Object.assign(el.style,{position:'absolute',left:'10px',top:'8px',zIndex:'5',fontSize:'11px',background:'rgba(7,16,28,.75)',padding:'5px 8px',borderRadius:'7px',border:'1px solid #26344d'});host.appendChild(el)}
+function start(){hook();addLegend();load()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
