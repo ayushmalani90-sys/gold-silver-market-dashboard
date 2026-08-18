@@ -1,0 +1,1 @@
+Backup marker for score-audit changes. Production baseline is preserved in Git history before this audit.
