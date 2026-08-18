@@ -1,0 +1,1 @@
+Score audit plan: validate standard technical formulas; remove arbitrary macro thresholds from Confluence; use direction/change for USD and real yields; exclude NFP from score without consensus/surprise data; label broad USD correctly; preserve missing-data exclusion.
