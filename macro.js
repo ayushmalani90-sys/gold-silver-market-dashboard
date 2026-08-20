@@ -23,13 +23,17 @@ async function fred(id) {
   if(!r.ok) throw new Error('FRED '+id+' HTTP '+r.status);
   const text = await r.text();
   const lines = text.trim().split(/\r?\n/).slice(1);
-  const rows = lines.map(line=>{const [date,value]=line.split(','); return {date,value:Number(value)}}).filter(x=>x.date && Number.isFinite(x.value));
-  return rows;
+  return lines.map(line=>{const [date,value]=line.split(','); return {date,value:Number(value)}}).filter(x=>x.date && Number.isFinite(x.value));
 }
 
 function latest(a){return a?.length?a[a.length-1]:null}
 function prev(a){return a?.length>1?a[a.length-2]:null}
 function yoy(a){if(!a?.length)return null;const x=latest(a);const target=a.find(v=>v.date===`${String(Number(x.date.slice(0,4))-1).padStart(4,'0')}-${x.date.slice(5)}`);return target?((x.value/target.value)-1)*100:null}
+
+function seriesPayload(a){
+  const x=latest(a), p=prev(a);
+  return {value:x?.value ?? null,date:x?.date ?? null,previous:p?.value ?? null,previousDate:p?.date ?? null};
+}
 
 export default async function handler(req,res){
   try{
@@ -38,17 +42,18 @@ export default async function handler(req,res){
       fred('PCEPI'), fred('PCEPILFE'), fred('DGS10'), fred('DFII10'), fred('DTWEXBGS'), fred('DFF')
     ]);
     const cpi=bls['CUUR0000SA0']||[], coreCpi=bls['CUUR0000SA0L1E']||[], unemp=bls['LNS14000000']||[], nfp=bls['CES0000000001']||[];
+    const cpiLatest=latest(cpi),cpiPrev=prev(cpi),coreCpiLatest=latest(coreCpi),coreCpiPrev=prev(coreCpi),pceLatest=latest(pce),pcePrev=prev(pce),corePceLatest=latest(corePce),corePcePrev=prev(corePce);
     const result={
-      cpi:{value:yoy(cpi),date:latest(cpi)?.date},
-      coreCpi:{value:yoy(coreCpi),date:latest(coreCpi)?.date},
-      pce:{value:yoy(pce),date:latest(pce)?.date},
-      corePce:{value:yoy(corePce),date:latest(corePce)?.date},
-      unemployment:{value:latest(unemp)?.value,date:latest(unemp)?.date},
-      nfp:{value:latest(nfp)?.value,date:latest(nfp)?.date,change:latest(nfp)&&prev(nfp)?latest(nfp).value-prev(nfp).value:null},
-      tenYear:{value:latest(dgs10)?.value,date:latest(dgs10)?.date},
-      realTenYear:{value:latest(real10)?.value,date:latest(real10)?.date},
-      dxy:{value:latest(dxy)?.value,date:latest(dxy)?.date},
-      fedEffective:{value:latest(dff)?.value,date:latest(dff)?.date}
+      cpi:{...seriesPayload(cpi),value:yoy(cpi),previous: cpiPrev && cpiLatest ? yoy(cpi.slice(0,-1).concat([cpiPrev])) : null},
+      coreCpi:{...seriesPayload(coreCpi),value:yoy(coreCpi),previous: coreCpiPrev && coreCpiLatest ? yoy(coreCpi.slice(0,-1).concat([coreCpiPrev])) : null},
+      pce:{...seriesPayload(pce),value:yoy(pce),previous: pcePrev && pceLatest ? yoy(pce.slice(0,-1).concat([pcePrev])) : null},
+      corePce:{...seriesPayload(corePce),value:yoy(corePce),previous: corePcePrev && corePceLatest ? yoy(corePce.slice(0,-1).concat([corePcePrev])) : null},
+      unemployment:seriesPayload(unemp),
+      nfp:{...seriesPayload(nfp),change:latest(nfp)&&prev(nfp)?latest(nfp).value-prev(nfp).value:null},
+      tenYear:seriesPayload(dgs10),
+      realTenYear:seriesPayload(real10),
+      dxy:seriesPayload(dxy),
+      fedEffective:seriesPayload(dff)
     };
     res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma','no-cache');
