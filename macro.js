@@ -28,11 +28,26 @@ async function fred(id) {
 
 function latest(a){return a?.length?a[a.length-1]:null}
 function prev(a){return a?.length>1?a[a.length-2]:null}
-function yoy(a){if(!a?.length)return null;const x=latest(a);const target=a.find(v=>v.date===`${String(Number(x.date.slice(0,4))-1).padStart(4,'0')}-${x.date.slice(5)}`);return target?((x.value/target.value)-1)*100:null}
-
-function seriesPayload(a){
+function yoy(a){
+  if(!a?.length)return null;
+  const x=latest(a);
+  const target=a.find(v=>v.date===`${String(Number(x.date.slice(0,4))-1).padStart(4,'0')}-${x.date.slice(5)}`);
+  return target?((x.value/target.value)-1)*100:null;
+}
+function yoyAt(a, point){
+  if(!point)return null;
+  const target=a.find(v=>v.date===`${String(Number(point.date.slice(0,4))-1).padStart(4,'0')}-${point.date.slice(5)}`);
+  return target?((point.value/target.value)-1)*100:null;
+}
+function seriesPayload(a, transform=null){
   const x=latest(a), p=prev(a);
-  return {value:x?.value ?? null,date:x?.date ?? null,previous:p?.value ?? null,previousDate:p?.date ?? null};
+  return {
+    value: x ? (transform?transform(x,a):x.value) : null,
+    date:x?.date ?? null,
+    previous:p ? (transform?transform(p,a):p.value) : null,
+    previousDate:p?.date ?? null,
+    period:x?.date ?? null
+  };
 }
 
 export default async function handler(req,res){
@@ -42,12 +57,11 @@ export default async function handler(req,res){
       fred('PCEPI'), fred('PCEPILFE'), fred('DGS10'), fred('DFII10'), fred('DTWEXBGS'), fred('DFF')
     ]);
     const cpi=bls['CUUR0000SA0']||[], coreCpi=bls['CUUR0000SA0L1E']||[], unemp=bls['LNS14000000']||[], nfp=bls['CES0000000001']||[];
-    const cpiLatest=latest(cpi),cpiPrev=prev(cpi),coreCpiLatest=latest(coreCpi),coreCpiPrev=prev(coreCpi),pceLatest=latest(pce),pcePrev=prev(pce),corePceLatest=latest(corePce),corePcePrev=prev(corePce);
     const result={
-      cpi:{...seriesPayload(cpi),value:yoy(cpi),previous: cpiPrev && cpiLatest ? yoy(cpi.slice(0,-1).concat([cpiPrev])) : null},
-      coreCpi:{...seriesPayload(coreCpi),value:yoy(coreCpi),previous: coreCpiPrev && coreCpiLatest ? yoy(coreCpi.slice(0,-1).concat([coreCpiPrev])) : null},
-      pce:{...seriesPayload(pce),value:yoy(pce),previous: pcePrev && pceLatest ? yoy(pce.slice(0,-1).concat([pcePrev])) : null},
-      corePce:{...seriesPayload(corePce),value:yoy(corePce),previous: corePcePrev && corePceLatest ? yoy(corePce.slice(0,-1).concat([corePcePrev])) : null},
+      cpi:seriesPayload(cpi,(x,a)=>yoyAt(a,x)),
+      coreCpi:seriesPayload(coreCpi,(x,a)=>yoyAt(a,x)),
+      pce:seriesPayload(pce,(x,a)=>yoyAt(a,x)),
+      corePce:seriesPayload(corePce,(x,a)=>yoyAt(a,x)),
       unemployment:seriesPayload(unemp),
       nfp:{...seriesPayload(nfp),change:latest(nfp)&&prev(nfp)?latest(nfp).value-prev(nfp).value:null},
       tenYear:seriesPayload(dgs10),
