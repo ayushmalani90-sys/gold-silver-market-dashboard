@@ -9,20 +9,24 @@ export default async function handler(req,res) {
 
     const [g,s] = await Promise.all([fetchPrice('XAU'), fetchPrice('XAG')]);
     const gold = Number(g.price), silver = Number(s.price);
-    const ts = g.updatedAt || s.updatedAt || new Date().toISOString();
+    const now = new Date();
+    const ts = g.updatedAt || s.updatedAt || now.toISOString();
+    const weekday = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Kolkata',weekday:'short'}).format(now);
 
-    res.setHeader('Cache-Control','no-store,max-age=0');
+    res.setHeader('Cache-Control','no-store, max-age=0, must-revalidate');
+    res.setHeader('CDN-Cache-Control','no-store');
     return res.status(200).json({
       success:true,
       source:'Gold API',
       sourceUrl:'https://gold-api.com',
-      market:{weekend:false,day:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Kolkata',weekday:'short'}).format(new Date()),closed:false},
-      gold:{price:gold,change24h:null,previousClose:null,previousDate:null},
-      silver:{price:silver,change24h:null,previousClose:null,previousDate:null},
+      market:{weekday,timezone:'Asia/Kolkata',closed:false,requestedAt:now.toISOString()},
+      gold:{price:gold,change24h:Number.isFinite(Number(g.changePercent))?Number(g.changePercent):null,previousClose:Number.isFinite(Number(g.previousClose))?Number(g.previousClose):null,previousDate:g.previousDate||null},
+      silver:{price:silver,change24h:Number.isFinite(Number(s.changePercent))?Number(s.changePercent):null,previousClose:Number.isFinite(Number(s.previousClose))?Number(s.previousClose):null,previousDate:s.previousDate||null},
       timestamp:ts,
       updatedAtReadable:g.updatedAtReadable || s.updatedAtReadable || 'recently'
     });
   } catch(e) {
-    return res.status(502).json({success:false,error:e.message,source:'Gold API'});
+    res.setHeader('Cache-Control','no-store, max-age=0, must-revalidate');
+    return res.status(502).json({success:false,error:e.message,source:'Gold API',updatedAt:new Date().toISOString()});
   }
 }
