@@ -1,7 +1,0 @@
-(()=>{'use strict';const $=id=>document.getElementById(id);let selected='gold',days=90,H={gold:[],silver:[]},chart=null;
-const fmt=v=>Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumFractionDigits:2}):'—';
-function vwap(a){if(!a?.length)return null;let pv=0,v=0;for(const x of a){const vol=Number(x.volume);if(!Number.isFinite(vol)||vol<=0)return null;const p=(Number(x.high)+Number(x.low)+Number(x.close))/3;pv+=p*vol;v+=vol}return v?pv/v:null}
-function makeVwapSeries(a){const out=[];let pv=0,v=0;for(const x of a){const vol=Number(x.volume);if(!Number.isFinite(vol)||vol<=0)return [];const p=(Number(x.high)+Number(x.low)+Number(x.close))/3;pv+=p*vol;v+=vol;out.push({time:x.time,value:pv/v})}return out}
-function addVwap(){if(!chart||!H[selected]?.length)return;const data=makeVwapSeries(H[selected]);if(!data.length)return;const s=chart.addLineSeries({lineWidth:2,title:'VWAP'});s.setData(data)}
-function makeChart(){const el=$('chart');if(!el)return;el.innerHTML='';chart=LightweightCharts.createChart(el,{layout:{background:{color:'transparent'},textColor:'#91a0b7'},grid:{vertLines:{color:'#17243a'},horzLines:{color:'#17243a'}},rightPriceScale:{borderColor:'#26344d'},timeScale:{borderColor:'#26344d',timeVisible:false}});const cs=chart.addCandlestickSeries({upColor:'#32c48d',downColor:'#ef6262',borderVisible:false,wickUpColor:'#32c48d',wickDownColor:'#ef6262'});cs.setData(H[selected]||[]);addVwap();chart.timeScale().fitContent()}
-window.dashboardVWAP={calculate:vwap,series:makeVwapSeries,refresh:makeChart};})();
